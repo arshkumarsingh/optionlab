@@ -5,47 +5,55 @@ VERSION = "1.2.1"
 
 
 if typing.TYPE_CHECKING:
-    # import of virtually everything is supported via `__getattr__` below,
+    # Import of virtually everything is supported via `__getattr__` below,
     # but we need them here for type checking and IDE support
+
+    # Models
     from .models import (
-        Inputs,
-        OptionType,
-        OptionInfo,
-        OptionStrategy,
-        Outputs,
-        ClosedPosition,
-        ProbabilityOfProfitArrayInputs,
-        ProbabilityOfProfitInputs,
-        BlackScholesInfo,
-        Distribution,
-        Strategy,
-        StrategyType,
-        StockStrategy,
-        Country,
-        Action,
+        Inputs,  # Inputs for running the strategy
+        OptionType,  # Enum for option types
+        OptionInfo,  # Option information
+        OptionStrategy,  # Option strategy
+        Outputs,  # Outputs of the strategy
+        ClosedPosition,  # Closed position information
+        ProbabilityOfProfitArrayInputs,  # Inputs for probability of profit array
+        ProbabilityOfProfitInputs,  # Inputs for probability of profit
+        BlackScholesInfo,  # Black Scholes option information
+        Distribution,  # Option distribution
+        Strategy,  # Strategy class
+        StrategyType,  # Enum for strategy types
+        StockStrategy,  # Stock strategy
+        Country,  # Enum for countries
+        Action,  # Enum for actions
     )
+
+    # Black Scholes
     from .black_scholes import (
-        get_itm_probability,
-        get_implied_vol,
-        get_option_price,
-        get_d1_d2,
-        get_bs_info,
-        get_vega,
-        get_delta,
-        get_gamma,
-        get_theta,
+        get_itm_probability,  # Get ITM probability
+        get_implied_vol,  # Get implied volatility
+        get_option_price,  # Get option price
+        get_d1_d2,  # Calculate D1 and D2
+        get_bs_info,  # Get Black Scholes option information
+        get_vega,  # Get vega
+        get_delta,  # Get delta
+        get_gamma,  # Get gamma
+        get_theta,  # Get theta
     )
-    from .engine import StrategyEngine, run_strategy
-    from .plot import plot_pl
+
+    # Engine
+    from .engine import StrategyEngine, run_strategy  # Strategy engine and runner
+
+    # Support
+    from .plot import plot_pl  # Plot profit and loss
     from .support import (
-        get_pl_profile,
-        get_pl_profile_stock,
-        get_pl_profile_bs,
-        create_price_seq,
-        create_price_samples,
-        get_profit_range,
-        get_pop,
-    )
+        get_pl_profile,  # Get profit and loss profile
+        get_pl_profile_stock,  # Get stock profit and loss profile
+        get_pl_profile_bs,  # Get Black Scholes option profit and loss profile
+        create_price_seq,  # Create price sequence
+        create_price_samples,  # Create price samples
+        get_profit_range,  # Get profit range
+        get_pop,  # Get profit of profit
+)
 
 __version__ = VERSION
 __all__ = (
