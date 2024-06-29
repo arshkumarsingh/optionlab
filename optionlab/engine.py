@@ -45,16 +45,30 @@ from optionlab.utils import (
 
 
 def run_strategy(inputs_data: Inputs | dict) -> Outputs:
+    """
+    Runs an options strategy calculation using the provided inputs.
+
+    Args:
+        inputs_data (Inputs | dict): The inputs data for the strategy.
+            It can be either an Inputs object or a dictionary.
+
+    Returns:
+        Outputs: The Outputs object containing the results of the calculation.
+    """
+    # Validate and convert inputs data to Inputs object
     inputs = (
         inputs_data
         if isinstance(inputs_data, Inputs)
         else Inputs.model_validate(inputs_data)
     )
 
+    # Initialize engine data with inputs
     data = _init_inputs(inputs)
 
+    # Run the strategy calculation
     data = _run(data)
 
+    # Generate the outputs from the engine data
     return _generate_outputs(data)
 
 
