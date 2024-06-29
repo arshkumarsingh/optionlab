@@ -365,38 +365,57 @@ def _get_pl_option(
 
 def _get_payoff(option_type: OptionType, s: np.ndarray, x: float) -> np.ndarray:
     """
-    get_payoff(option_type, s, x) -> returns the payoff of an option trade at expiration.
+    Calculate the payoff of an option trade at expiration.
 
-    Arguments:
-    ----------
-    option_type: option type (either 'call' or 'put').
-    s: a numpy array of stock prices.
-    x: strike price.
+    Parameters:
+    option_type (OptionType): The type of the option (either 'call' or 'put').
+    s (numpy.ndarray): An array of stock prices.
+    x (float): The strike price.
+
+    Returns:
+    numpy.ndarray: An array of payoffs corresponding to each stock price.
+
+    Raises:
+    ValueError: If the option type is neither 'call' nor 'put'.
     """
 
+    # 'call' option payoff calculation
     if option_type == "call":
-        return (s - x + abs(s - x)) / 2.0
+        # (s - x + abs(s - x)) / 2.0
+        return (s - x + np.abs(s - x)) / 2.0
+    # 'put' option payoff calculation
     elif option_type == "put":
-        return (x - s + abs(x - s)) / 2.0
+        # (x - s + abs(x - s)) / 2.0
+        return (x - s + np.abs(x - s)) / 2.0
+    # Raise an error if the option type is neither 'call' nor 'put'
     else:
         raise ValueError("Option type must be either 'call' or 'put'!")
 
 
 def _get_pl_stock(s0: float, action: Action, s: np.ndarray) -> np.ndarray:
     """
-    get_pl_stock(s0,action,s) -> returns the profit (P) or loss (L) of a stock
-    position.
+    Calculate the profit or loss of a stock position.
 
-    Arguments:
-    ----------
-    s0: initial stock price.
-    action: either 'buy' or 'sell' the stock.
-    s: a numpy array of stock prices.
+    Parameters:
+    s0 (float): The initial stock price.
+    action (Action): The action performed on the stock ('buy' or 'sell').
+    s (numpy.ndarray): An array of stock prices.
+
+    Returns:
+    numpy.ndarray: An array of profit or loss values corresponding to each stock price.
+
+    Raises:
+    ValueError: If the action is neither 'buy' nor 'sell'.
     """
 
+    # If the action is 'sell', return the difference between the initial stock price
+    # and each stock price in the array.
     if action == "sell":
         return s0 - s
+    # If the action is 'buy', return the difference between each stock price in the
+    # array and the initial stock price.
     elif action == "buy":
         return s - s0
+    # Raise an error if the action is neither 'buy' nor 'sell'.
     else:
         raise ValueError("Action must be either 'sell' or 'buy'!")
