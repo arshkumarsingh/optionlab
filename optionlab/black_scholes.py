@@ -8,14 +8,7 @@ from numpy.lib.scimath import log, sqrt
 from optionlab.models import BlackScholesInfo, OptionType
 
 
-def get_bs_info(
-    s: float,
-    x: float,
-    r: float,
-    vol: float,
-    years_to_maturity: float,
-    y: float = 0.0
-) -> BlackScholesInfo:
+def get_bs_info(s, x, r, vol, years_to_maturity, y=0.0):
     """
     This function calculates information about call and put options using the Black-Scholes formula.
     It takes the following arguments:
@@ -26,7 +19,7 @@ def get_bs_info(
     - years_to_maturity: The time remaining to option expiration in units of year
     - y: The annualized stock's dividend yield (default is zero)
 
-    It returns an instance of the BlackScholesInfo class, which contains the following attributes:
+    It returns a tuple containing the following attributes:
     - call_price: The price of the call option
     - put_price: The price of the put option
     - call_delta: The call option's delta
@@ -40,20 +33,28 @@ def get_bs_info(
     """
     d1, d2 = get_d1_d2(s, x, r, vol, years_to_maturity, y)
 
-    call_info = get_option_info("call", s, x, r, years_to_maturity, d1, d2, y)
-    put_info = get_option_info("put", s, x, r, years_to_maturity, d1, d2, y)
+    call_price = get_option_price("call", s, x, r, years_to_maturity, d1, d2, y)
+    put_price = get_option_price("put", s, x, r, years_to_maturity, d1, d2, y)
+    call_delta = get_delta("call", d1, years_to_maturity, y)
+    put_delta = get_delta("put", d1, years_to_maturity, y)
+    call_theta = get_theta("call", s, x, r, vol, years_to_maturity, d1, d2, y)
+    put_theta = get_theta("put", s, x, r, vol, years_to_maturity, d1, d2, y)
+    gamma = get_gamma(s, years_to_maturity, d1, y)
+    vega = get_vega(s, years_to_maturity, d1, y)
+    call_itm_prob = get_itm_probability("call", d2, years_to_maturity, y)
+    put_itm_prob = get_itm_probability("put", d2, years_to_maturity, y)
 
-    return BlackScholesInfo(
-        call_price=call_info.price,
-        put_price=put_info.price,
-        call_delta=call_info.delta,
-        put_delta=put_info.delta,
-        call_theta=call_info.theta,
-        put_theta=put_info.theta,
-        gamma=call_info.gamma,
-        vega=call_info.vega,
-        call_itm_prob=call_info.itm_prob,
-        put_itm_prob=put_info.itm_prob,
+    return (
+        call_price,
+        put_price,
+        call_delta,
+        put_delta,
+        call_theta,
+        put_theta,
+        gamma,
+        vega,
+        call_itm_prob,
+        put_itm_prob,
     )
 
 
@@ -67,6 +68,23 @@ def get_option_info(
     d2: float,
     y: float = 0.0
 ) -> BlackScholesInfo:
+    """
+    get_option_info(option_type, s, x, r, years_to_maturity, d1, d2, y) -> returns
+    information about an option using the Black Scholes model.
+
+    The function receives the option type, the current stock price, the option strike,
+    the risk-free interest rate, the time remaining to maturity, 'd1' and 'd2' as defined
+    in the Black Scholes formula, and the stocks's annualized dividend yield 'y'
+    (default is zero, i.e., the stock does not pay dividends) as arguments.
+
+    It returns a BlackScholesInfo object containing the following attributes:
+    - price: The price of the option
+    - delta: The option's delta
+    - theta: The option's theta
+    - gamma: The option's gamma
+    - vega: The option's vega
+    - itm_prob: The probability that the option is in the money
+    """
     call_price = get_option_price(option_type, s, x, r, years_to_maturity, d1, d2, y)
     delta = get_delta(option_type, d1, years_to_maturity, y)
     theta = get_theta(option_type, s, x, r, years_to_maturity, d1, d2, y)
@@ -95,28 +113,43 @@ def get_option_price(
     y: float = 0.0,
 ) -> float:
     """
-    get_option_price(option_type, s0, x, r, years_to_maturity, d1, d2, y) -> returns the price of
-    an option (call or put) given the current stock price 's0' and the option
+    This function computes the price of an option (call or put) given the current stock price 's0' and the option
     strike 'x', as well as the annualized risk-free rate 'r', the time remaining
     to maturity in units of year, 'd1' and 'd2' as defined in the Black-Scholes
     formula, and the stocks's annualized dividend yield 'y' (default is zero,
     i.e., the stock does not pay dividends).
+
+    Args:
+        option_type (str): The type of option (call or put).
+        s0 (float or np.ndarray): The current stock price.
+        x (float or np.ndarray): The option strike.
+        r (float): The annualized risk-free rate.
+        years_to_maturity (float): The time remaining to maturity in years.
+        d1 (float): The first derivative of the Black-Scholes formula.
+        d2 (float): The second derivative of the Black-Scholes formula.
+        y (float, optional): The stock's annualized dividend yield. Defaults to 0.0.
+
+    Returns:
+        float: The price of the option.
+
+    Raises:
+        ValueError: If the option type is not 'call' or 'put'.
     """
+    # Adjust the stock price based on the annualized dividend yield
     if y > 0.0:
         s = s0 * exp(-y * years_to_maturity)
     else:
         s = s0
 
+    # Compute the price of the call or put option
     if option_type == "call":
         return round(
-            s * stats.norm.cdf(d1)
-            - x * exp(-r * years_to_maturity) * stats.norm.cdf(d2),
+            s * stats.norm.cdf(d1) - x * exp(-r * years_to_maturity) * stats.norm.cdf(d2),
             2,
         )
     elif option_type == "put":
         return round(
-            x * exp(-r * years_to_maturity) * stats.norm.cdf(-d2)
-            - s * stats.norm.cdf(-d1),
+            x * exp(-r * years_to_maturity) * stats.norm.cdf(-d2) - s * stats.norm.cdf(-d1),
             2,
         )
     else:
@@ -124,21 +157,39 @@ def get_option_price(
 
 
 def get_delta(
-    option_type: OptionType, d1: float, years_to_maturity: float = 0.0, y: float = 0.0
+    option_type: OptionType,
+    d1: float,
+    years_to_maturity: float = 0.0,
+    y: float = 0.0
 ) -> float:
     """
-    get_delta(option_type, d1, years_to_maturity, y) -> computes the Greek Delta for an option
-    (call or put) taking 'd1' as defined in the Black-Scholes formula as a mandatory
-    argument. Optionally, the time remaining to maturity in units of year and
-    the stocks's annualized dividend yield 'y' (default is zero,i.e., the stock
-    does not pay dividends) may be passed as arguments. The Greek Delta estimates
-    how the option price varies as the stock price increases or decreases by $1.
+    This function computes the Greek Delta for an option (call or put) taking
+    'd1' as defined in the Black-Scholes formula as a mandatory argument.
+    Optionally, the time remaining to maturity in units of year and the stocks's
+    annualized dividend yield 'y' (default is zero, i.e., the stock does not pay
+    dividends) may be passed as arguments. The Greek Delta estimates how the
+    option price varies as the stock price increases or decreases by $1.
+
+    Args:
+        option_type (OptionType): The type of the option (call or put)
+        d1 (float): The value of d1 as defined in the Black-Scholes formula
+        years_to_maturity (float, optional): The time remaining to maturity in
+            units of year. Defaults to 0.0.
+        y (float, optional): The stocks's annualized dividend yield. Defaults to 0.0.
+
+    Returns:
+        float: The value of the Greek Delta
+
+    Raises:
+        ValueError: If the option type is neither 'call' nor 'put'
     """
+    # Calculate the factor for the dividend yield
     if y > 0.0 and years_to_maturity > 0.0:
         yfac = exp(-y * years_to_maturity)
     else:
         yfac = 1.0
 
+    # Calculate the Greek Delta based on the option type
     if option_type == "call":
         return yfac * stats.norm.cdf(d1)
     elif option_type == "put":
