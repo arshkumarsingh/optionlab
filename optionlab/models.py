@@ -4,32 +4,54 @@ from typing import Literal
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
-OptionType = Literal["call", "put"]
-Action = Literal["buy", "sell"]
-StrategyType = Literal["stock"] | OptionType | Literal["closed"]
-Range = tuple[float, float]
-Distribution = Literal["black-scholes", "normal", "laplace", "array"]
+
+
+# Type of an option
+OptionType = Literal["call", "put"]  # call or put option
+
+# Action to be taken on an option
+Action = Literal["buy", "sell"]  # buy or sell option
+
+# Type of a strategy
+StrategyType = Literal["stock"] | OptionType | Literal["closed"]  # stock, option or closed position
+
+# Range of values
+Range = tuple[float, float]  # tuple of two floats representing a range
+
+# Type of distribution
+Distribution = Literal["black-scholes", "normal", "laplace", "array"]  # distribution type
+
+# Country for holidays
 Country = Literal[
-    "US",
-    "Canada",
-    "Mexico",
-    "Brazil",
-    "China",
-    "India",
-    "South Korea",
-    "Russia",
-    "Japan",
-    "UK",
-    "France",
-    "Germany",
-    "Italy",
-    "Australia",
-]
+    "US",  # United States
+    "Canada",  # Canada
+    "Mexico",  # Mexico
+    "Brazil",  # Brazil
+    "China",  # China
+    "India",  # India
+    "South Korea",  # South Korea
+    "Russia",  # Russia
+    "Japan",  # Japan
+    "UK",  # United Kingdom
+    "France",  # France
+    "Germany",  # Germany
+    "Italy",  # Italy
+    "Australia",  # Australia
+]  # country for holidays
 
 
 class BaseStrategy(BaseModel):
-    action: Action
-    prev_pos: float | None = None
+    """
+    Base class for strategies.
+
+    Attributes:
+        action (Action): The action to be taken on the strategy, either 'buy' or 'sell'.
+        prev_pos (float | None): The total value of the position to be closed, which can be positive if it made a profit or negative if it is a loss.
+            If not defined, the position remains open.
+    """
+
+    action: Action  # Action to be taken on the strategy
+    prev_pos: float | None = None  # The total value of the position to be closed
 
 
 class StockStrategy(BaseStrategy):
@@ -95,15 +117,21 @@ class OptionStrategy(BaseStrategy):
 
 class ClosedPosition(BaseModel):
     """
-    "type" : string
-        It must be 'closed'. It is mandatory.
-    "prev_pos" : float
-        The total value of the position to be closed, which can be
-        positive if it made a profit or negative if it is a loss.
-        It is mandatory.
+    Represents a previously opened position that is being closed.
+
+    Attributes:
+        type (Literal["closed"]): It must be 'closed'. It is mandatory.
+        prev_pos (float): The total value of the position to be closed,
+            which can be positive if it made a profit or negative if it
+            is a loss. It is mandatory.
     """
 
+    # It must be 'closed'. It is mandatory.
     type: Literal["closed"] = "closed"
+
+    # The total value of the position to be closed,
+    # which can be positive if it made a profit or negative if it
+    # is a loss. It is mandatory.
     prev_pos: float
 
 
@@ -111,18 +139,52 @@ Strategy = StockStrategy | OptionStrategy | ClosedPosition
 
 
 class ProbabilityOfProfitInputs(BaseModel):
+    """
+    Represents the inputs for the PoP calculation.
+
+    Attributes:
+        source (Literal["black-scholes", "normal", "laplace"]): The statistical distribution used to compute the PoP.
+        stock_price (float): Spot price of the underlying.
+        volatility (float): Annualized volatility.
+        years_to_maturity (float): Time left to maturity in units of year.
+        interest_rate (float | None): Annualized risk-free interest rate. Required for 'black-schols' PoP calculation.
+        dividend_yield (float): Annualized dividend yield.
+    """
+
+    # The statistical distribution used to compute the PoP.
+    # Possible values are 'black-schols', 'normal' or 'laplace'.
     source: Literal["black-scholes", "normal", "laplace"]
+
+    # Spot price of the underlying.
     stock_price: float = Field(gt=0)
+
+    # Annualized volatility.
     volatility: float = Field(gt=0, le=1)
+
+    # Time left to maturity in units of year.
     years_to_maturity: float = Field(gt=0)
+
+    # Annualized risk-free interest rate. Required for 'black-schols' PoP calculation.
     interest_rate: float | None = Field(None, gt=0, le=0.2)
+
+    # Annualized dividend yield.
     dividend_yield: float = Field(0, ge=0, le=1)
 
     @model_validator(mode="after")
     def validate_black_scholes_model(self) -> "ProbabilityOfProfitInputs":
-        if self.source == "black-scholes" and not self.interest_rate:
+        """
+        Validates the PoP inputs for the 'black-schols' model.
+
+        Raises:
+            ValueError: If interest rate is not provided for 'black-schols' PoP calculations.
+
+        Returns:
+            ProbabilityOfProfitInputs: The validated inputs.
+        """
+        # If the source is 'black-schols' and the interest rate is not provided, raise an error.
+        if self.source == "black-schols" and not self.interest_rate:
             raise ValueError(
-                "Risk-free interest rate must be provided for 'black-scholes' PoP calculations!"
+                "Risk-free interest rate must be provided for 'black-schols' PoP calculations!"
             )
         return self
 
@@ -229,27 +291,42 @@ class Inputs(BaseModel):
 
     @model_validator(mode="after")
     def validate_dates(self) -> "Inputs":
+        """
+        Validates the dates provided in the inputs.
+
+        Raises:
+            ValueError: If the start date is after the target date or if the
+                expiration dates are after or on the target date.
+            ValueError: If neither start_date and target_date nor
+                days_to_target_date are provided.
+            ValueError: If there is a strategy expiration date and
+                days_to_target_date is provided.
+        """
+        # Extract the expiration dates from the strategy
         expiration_dates = [
             strategy.expiration
             for strategy in self.strategy
-            if isinstance(strategy, OptionStrategy)
-            and isinstance(strategy.expiration, dt.date)
+            if isinstance(strategy, OptionStrategy) and isinstance(strategy.expiration, dt.date)
         ]
+
+        # Validate the start and target dates
         if self.start_date and self.target_date:
-            if any(
-                expiration_date < self.target_date
-                for expiration_date in expiration_dates
-            ):
+            if any(expiration_date < self.target_date for expiration_date in expiration_dates):
                 raise ValueError("Expiration dates must be after or on target date!")
             if self.start_date >= self.target_date:
                 raise ValueError("Start date must be before target date!")
             return self
+
+        # Validate the days_to_target_date
         if self.days_to_target_date:
             if len(expiration_dates) > 0:
                 raise ValueError(
                     "You can't mix a strategy expiration with a days_to_target_date."
                 )
             return self
+
+        # Raise an error if neither start_date and target_date nor
+        # days_to_target_date are provided
         raise ValueError(
             "Either start_date and target_date or days_to_maturity must be provided"
         )
@@ -270,16 +347,43 @@ class Inputs(BaseModel):
 
 
 class BlackScholesInfo(BaseModel):
+    """
+    Model for storing Black Scholes option information.
+    """
+
+    # Call option price
     call_price: float
+    # Put option price
     put_price: float
+    # Call option delta
     call_delta: float
+    # Put option delta
     put_delta: float
+    # Call option theta
     call_theta: float
+    # Put option theta
     put_theta: float
+    # Call and put option gamma
     gamma: float
+    # Call and put option vega
     vega: float
+    # Call option in-the-money probability
     call_itm_prob: float
+    # Put option in-the-money probability
     put_itm_prob: float
+    """
+    Attributes:
+        call_price (float): The price of the call option.
+        put_price (float): The price of the put option.
+        call_delta (float): The call option's delta.
+        put_delta (float): The put option's delta.
+        call_theta (float): The call option's theta.
+        put_theta (float): The put option's theta.
+        gamma (float): The call and put option's gamma.
+        vega (float): The call and put option's vega.
+        call_itm_prob (float): The probability of the call option being in the money.
+        put_itm_prob (float): The probability of the put option being in the money.
+    """
 
 
 class OptionInfo(BaseModel):
@@ -293,40 +397,71 @@ def init_empty_array() -> np.ndarray:
 
 
 class EngineDataResults(BaseModel):
+    """
+    Data structure for storing results from the strategy engine.
+
+    Attributes:
+        stock_price_array (np.ndarray): Array of stock prices.
+        terminal_stock_prices (np.ndarray): Array of terminal stock prices.
+        profit (np.ndarray): Array of profit values.
+        profit_mc (np.ndarray): Array of Monte Carlo profit values.
+        strategy_profit (np.ndarray): Array of total strategy profit values.
+        strategy_profit_mc (np.ndarray): Array of Monte Carlo total strategy profit values.
+        strike (list[float]): List of strike prices.
+        premium (list[float]): List of premiums.
+        n (list[int]): List of number of contracts.
+        action (list[Action | Literal["n/a"]]): List of actions.
+        type (list[StrategyType]): List of strategy types.
+    """
     stock_price_array: np.ndarray
     terminal_stock_prices: np.ndarray
     profit: np.ndarray = Field(default_factory=init_empty_array)
     profit_mc: np.ndarray = Field(default_factory=init_empty_array)
     strategy_profit: np.ndarray = Field(default_factory=init_empty_array)
     strategy_profit_mc: np.ndarray = Field(default_factory=init_empty_array)
-    strike: list[float] = []
-    premium: list[float] = []
-    n: list[int] = []
-    action: list[Action | Literal["n/a"]] = []
-    type: list[StrategyType] = []
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
+    strike: list[float] = []  # Strike prices
+    premium: list[float] = []  # Premiums
+    n: list[int] = []  # Number of contracts
+    action: list[Action | Literal["n/a"]] = []  # Actions
+    type: list[StrategyType] = []  # Strategy types
+    model_config = ConfigDict(arbitrary_types_allowed=True)  # Model configurations
 
 class EngineData(EngineDataResults):
-    inputs: Inputs
-    _previous_position: list[float] = []
-    _use_bs: list[bool] = []
-    _profit_ranges: list[Range] = []
-    _profit_target_range: list[Range] = []
-    _loss_limit_ranges: list[Range] = []
-    _days_to_maturity: list[int] = []
-    _days_in_year: int = 365
-    days_to_target: int = 30
-    implied_volatility: list[float | np.ndarray] = []
-    itm_probability: list[float] = []
-    delta: list[float] = []
-    gamma: list[float] = []
-    vega: list[float] = []
-    theta: list[float] = []
-    cost: list[float] = []
-    profit_probability: float = 0.0
-    profit_target_probability: float = 0.0
-    loss_limit_probability: float = 0.0
+    """
+    EngineData class inherits from EngineDataResults and adds additional
+    attributes for storing intermediate results from the strategy engine.
+    """
+    inputs: Inputs  # Inputs to the strategy engine
+
+    _previous_position: list[float] = []  # Previous position of each leg
+    _use_bs: list[bool] = []  # Flag to indicate if Black-Scholes model is used
+    _profit_ranges: list[Range] = []  # Ranges of stock prices yielding profit
+    _profit_target_range: list[Range] = []  # Range of stock prices yielding profit target
+    _loss_limit_ranges: list[Range] = []  # Range of stock prices yielding loss limit
+    _days_to_maturity: list[int] = []  # Days to maturity for each option
+    _days_in_year: int = 365  # Number of days in a year
+
+    days_to_target: int = 30  # Days to target date
+    """
+    Days to target date. If dates are used, this is ignored and days to target
+    is calculated.
+    """
+
+    implied_volatility: list[float | np.ndarray] = []  # Implied volatility for each option
+    itm_probability: list[float] = []  # ITM probability for each option
+    delta: list[float] = []  # Delta for each option
+    gamma: list[float] = []  # Gamma for each option
+    vega: list[float] = []  # Vega for each option
+    theta: list[float] = []  # Theta for each option
+    cost: list[float] = []  # Cost of each option
+
+    profit_probability: float = 0.0  # Probability of profit
+    profit_target_probability: float = 0.0  # Probability of profit target
+    loss_limit_probability: float = 0.0  # Probability of loss limit
+    """
+    Probability of loss limit. This is not used in the current version of the
+    code.
+    """
 
 
 class Outputs(BaseModel):
