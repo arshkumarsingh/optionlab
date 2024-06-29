@@ -9,38 +9,78 @@ from optionlab.models import BlackScholesInfo, OptionType
 
 
 def get_bs_info(
-    s: float, x: float, r: float, vol: float, years_to_maturity: float, y: float = 0.0
+    s: float,
+    x: float,
+    r: float,
+    vol: float,
+    years_to_maturity: float,
+    y: float = 0.0
 ) -> BlackScholesInfo:
     """
-    get_bs_info(s, x, r, vol, years_to_maturity, y) -> provides informaton about call and
-    put options using the Black-Scholes formula, taking the current stock price
-    's', the option strike 'x', the annualized risk-free rate 'r', the annualized
-    volatility 'vol', the time remaining to maturity in units of year, and
-    the annualized stock's dividend yield 'y' as arguments.
+    This function calculates information about call and put options using the Black-Scholes formula.
+    It takes the following arguments:
+    - s: The current stock price
+    - x: The option strike
+    - r: The annualized risk-free rate
+    - vol: The annualized volatility
+    - years_to_maturity: The time remaining to option expiration in units of year
+    - y: The annualized stock's dividend yield (default is zero)
+
+    It returns an instance of the BlackScholesInfo class, which contains the following attributes:
+    - call_price: The price of the call option
+    - put_price: The price of the put option
+    - call_delta: The call option's delta
+    - put_delta: The put option's delta
+    - call_theta: The call option's theta
+    - put_theta: The put option's theta
+    - gamma: The call and put option's gamma
+    - vega: The call and put option's vega
+    - call_itm_prob: The probability of the call option being in the money
+    - put_itm_prob: The probability of the put option being in the money
     """
     d1, d2 = get_d1_d2(s, x, r, vol, years_to_maturity, y)
-    call_price = get_option_price("call", s, x, r, years_to_maturity, d1, d2, y)
-    put_price = get_option_price("put", s, x, r, years_to_maturity, d1, d2, y)
-    call_delta = get_delta("call", d1, years_to_maturity, y)
-    put_delta = get_delta("put", d1, years_to_maturity, y)
-    call_theta = get_theta("call", s, x, r, vol, years_to_maturity, d1, d2, y)
-    put_theta = get_theta("put", s, x, r, vol, years_to_maturity, d1, d2, y)
-    gamma = get_gamma(s, vol, years_to_maturity, d1, y)
-    vega = get_vega(s, years_to_maturity, d1, y)
-    call_itm_prob = get_itm_probability("call", d2, years_to_maturity, y)
-    put_itm_prob = get_itm_probability("put", d2, years_to_maturity, y)
+
+    call_info = get_option_info("call", s, x, r, years_to_maturity, d1, d2, y)
+    put_info = get_option_info("put", s, x, r, years_to_maturity, d1, d2, y)
 
     return BlackScholesInfo(
-        call_price=call_price,
-        put_price=put_price,
-        call_delta=call_delta,
-        put_delta=put_delta,
-        call_theta=call_theta,
-        put_theta=put_theta,
+        call_price=call_info.price,
+        put_price=put_info.price,
+        call_delta=call_info.delta,
+        put_delta=put_info.delta,
+        call_theta=call_info.theta,
+        put_theta=put_info.theta,
+        gamma=call_info.gamma,
+        vega=call_info.vega,
+        call_itm_prob=call_info.itm_prob,
+        put_itm_prob=put_info.itm_prob,
+    )
+
+
+def get_option_info(
+    option_type: OptionType,
+    s: float,
+    x: float,
+    r: float,
+    years_to_maturity: float,
+    d1: float,
+    d2: float,
+    y: float = 0.0
+) -> BlackScholesInfo:
+    call_price = get_option_price(option_type, s, x, r, years_to_maturity, d1, d2, y)
+    delta = get_delta(option_type, d1, years_to_maturity, y)
+    theta = get_theta(option_type, s, x, r, years_to_maturity, d1, d2, y)
+    gamma = get_gamma(s, years_to_maturity, d1, y)
+    vega = get_vega(s, years_to_maturity, d1, y)
+    itm_prob = get_itm_probability(option_type, d2, years_to_maturity, y)
+
+    return BlackScholesInfo(
+        price=call_price,
+        delta=delta,
+        theta=theta,
         gamma=gamma,
         vega=vega,
-        call_itm_prob=call_itm_prob,
-        put_itm_prob=put_itm_prob,
+        itm_prob=itm_prob,
     )
 
 
