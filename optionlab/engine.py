@@ -278,12 +278,14 @@ def _run_option_calcs(data: EngineData, i: int) -> EngineData:
     Returns:
         EngineData: The updated engine data.
     """
+    # Get the inputs
     inputs = data.inputs
     action: Action = data.action[i]  # type: ignore
     type: OptionType = data.type[i]  # type: ignore
 
     # Previous position is closed
     if data._previous_position[i] < 0.0:
+        # Set implied volatility, itm probability, delta, gamma, vega, and theta to zeros
         data.implied_volatility.append(0.0)
         data.itm_probability.append(0.0)
         data.delta.append(0.0)
