@@ -240,22 +240,20 @@ def get_theta(
     Greek Theta estimates the value lost per year of an option as the maturity
     gets closer.
     """
-    if y > 0.0:
-        s = s0 * exp(-y * years_to_maturity)
-    else:
-        s = s0
+    # Calculate the factor for the dividend yield and the stock price with dividend yield
+    yfac = exp(-y * years_to_maturity) if y > 0.0 else 1.0
+    s = s0 * yfac
 
-    cdf_d1_prime = exp(-0.5 * d1 * d1) / sqrt(2.0 * pi)
-
+    # Calculate the Greek Theta based on the option type
     if option_type == "call":
         return -(
-            s * vol * cdf_d1_prime / (2.0 * sqrt(years_to_maturity))
+            s * vol * exp(-0.5 * d1 * d1) / sqrt(2.0 * pi * years_to_maturity)
             + r * x * exp(-r * years_to_maturity) * stats.norm.cdf(d2)
             - y * s * stats.norm.cdf(d1)
         )
     elif option_type == "put":
         return -(
-            s * vol * cdf_d1_prime / (2.0 * sqrt(years_to_maturity))
+            s * vol * exp(-0.5 * d1 * d1) / sqrt(2.0 * pi * years_to_maturity)
             - r * x * exp(-r * years_to_maturity) * stats.norm.cdf(-d2)
             + y * s * stats.norm.cdf(-d1)
         )
